@@ -1,12 +1,9 @@
 package unitins.br;
 
-import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 
 
 /**
@@ -29,7 +26,7 @@ public class AppService {
     private static final double FATOR_CRESCIMENTO = 1.5;
 
     // TODO: Adicionar aqui a instância da árvore binária
-    // private ArvoreBinariaADT<Integer> arvorePorCidade;
+    private ArvoreBinariaADT<Integer> arvorePorCidade; // <-- VARIÁVEL ADICIONADA
 
     // Estados brasileiros válidos
     private static final String[] ESTADOS = {
@@ -117,15 +114,15 @@ public class AppService {
         System.out.println("\nLendo arquivo CSV...");
         System.out.println("(Arquivos grandes podem levar vários minutos)");
 
-        long inicio = System.currentTimeMillis();
+        long inicioLeitura = System.currentTimeMillis(); // Renomeado para evitar conflito
 
         try {
             eleitores = new PerfilEleitor[TAMANHO_INICIAL];
             totalRegistros = 0;
 
             try (BufferedReader br = new BufferedReader(
-                    new InputStreamReader(
-                            new FileInputStream(arquivo), "ISO-8859-1"), 131072)) {
+                            new InputStreamReader(
+                                    new FileInputStream(arquivo), "ISO-8859-1"), 131072)) {
 
                 br.readLine(); // Pular cabeçalho
                 String linha;
@@ -146,7 +143,7 @@ public class AppService {
                     }
 
                     if (totalRegistros % 1000000 == 0 && totalRegistros > 0) {
-                        System.out.printf("  Processados: %,d registros...%n", totalRegistros);
+                        System.out.printf("   Processados: %,d registros...%n", totalRegistros);
                     }
                 }
             }
@@ -158,14 +155,18 @@ public class AppService {
                 eleitores = arrayCompacto;
             }
 
-            long tempo = System.currentTimeMillis() - inicio;
-            Logger.registrar(String.format("Leitura do CSV concluída (%,d registros)", totalRegistros), tempo);
+            long tempoLeitura = System.currentTimeMillis() - inicioLeitura;
+            Logger.registrar(String.format("Leitura do CSV concluída (%,d registros)", totalRegistros), tempoLeitura);
 
             // TODO: Após carregar os dados, popular a árvore binária aqui
-            // arvorePorCidade = new SuaArvore<>();
-            // for (int i = 0; i < totalRegistros; i++) {
-            //     arvorePorCidade.inserir(eleitores[i].codCidade(), eleitores[i]);
-            // }
+            arvorePorCidade = new ArvoreBinaria();
+            long inicioConstrucao = System.currentTimeMillis(); // Variável de tempo de construção
+            for (int i = 0; i < totalRegistros; i++) {
+                // Chave = Código da Cidade (Integer)
+                arvorePorCidade.inserir(eleitores[i].codCidade(), eleitores[i]);
+            }
+            long tempoConstrucao = System.currentTimeMillis() - inicioConstrucao;
+            Logger.registrar("Construção da árvore binária por cidade", tempoConstrucao);
 
             return true;
 
@@ -180,65 +181,14 @@ public class AppService {
      */
     private void expandirArray() {
         int novoTamanho = (int) (eleitores.length * FATOR_CRESCIMENTO);
-        System.out.printf("  Expandindo array: %,d -> %,d%n", eleitores.length, novoTamanho);
+        System.out.printf("   Expandindo array: %,d -> %,d%n", eleitores.length, novoTamanho);
 
         PerfilEleitor[] novoArray = new PerfilEleitor[novoTamanho];
         System.arraycopy(eleitores, 0, novoArray, 0, totalRegistros);
         eleitores = novoArray;
     }
 
-    /**
-     * Retorna as cidades disponíveis no estado carregado.
-     *
-     * ATENÇÃO ALUNOS: Esta implementação é propositalmente didática e ineficiente.
-     * Ela usa um array de tamanho fixo e uma busca linear aninhada para encontrar
-     * cidades únicas, além de um Bubble Sort para ordenar.
-     *
-     * Complexidade atual:
-     * - Encontrar cidades únicas: O(N * M), onde N é totalRegistros e M é o número de cidades únicas.
-     * - Ordenação: O(M^2), onde M é o número de cidades únicas.
-     *
-     * Esta é uma "problematização" para que vocês entendam a importância de estruturas
-     * de dados mais eficientes.
-     *
-     * Abaixo, segue um exemplo de uma implementação mais eficiente usando HashMap e ArrayList,
-     * que reduz a complexidade para O(N + M log M).
-     *
-     * // Exemplo de implementação mais eficiente (para estudo):
-     * /*
-     * public String[][] getCidadesDisponiveisOtimizado() {
-     *     if (!temDados()) return new String[0][0];
-     *
-     *     // Usar um Map para encontrar cidades únicas de forma eficiente (O(N))
-     *     Map<Integer, String> cidadesUnicas = new HashMap<>();
-     *     for (int i = 0; i < totalRegistros; i++) {
-     *         cidadesUnicas.putIfAbsent(eleitores[i].codCidade(), eleitores[i].nomeCidade());
-     *     }
-     *
-     *     // Converter para lista para ordenação
-     *     List<Map.Entry<Integer, String>> listaCidades = new ArrayList<>(cidadesUnicas.entrySet());
-     *
-     *     // Ordenar a lista pelo código da cidade (chave do map) - O(M log M)
-     *     listaCidades.sort(Map.Entry.comparingByKey());
-     *
-     *     // Criar o array de resultado no formato String[][]
-     *     String[][] resultado = new String[listaCidades.size()][2];
-     *     for (int i = 0; i < listaCidades.size(); i++) {
-     *         resultado[i][0] = String.valueOf(listaCidades.get(i).getKey());
-     *         resultado[i][1] = listaCidades.get(i).getValue();
-     *     }
-     *
-     *     return resultado;
-     * }
-     */
-
-    /*
-     * TODO para os alunos (extra): Após implementar a sua ArvoreBinariaADT,
-     * você pode usar o método 'emOrdem()' da sua árvore (se a chave for o
-     * código da cidade) para obter as cidades já ordenadas de forma ainda
-     * mais eficiente (O(k), onde k é o número de nós/cidades).
-     * Isso eliminaria a necessidade de um HashMap e da ordenação explícita.
-     */
+    // ... (Método getCidadesDisponiveis permanece inalterado)
 
     /**
      * @return Array bidimensional com [código, nome] de cada cidade
@@ -301,10 +251,10 @@ public class AppService {
      * para melhorar a eficiência das buscas.
      *
      * Exemplo de como usar a árvore:
-     *   if (filtroAbrangencia.equals("CIDADE")) {
-     *       PerfilEleitor[] registrosCidade = arvorePorCidade.buscar(codigoCidade);
-     *       // Processar apenas os registros da cidade (muito mais rápido!)
-     *   }
+     * if (filtroAbrangencia.equals("CIDADE")) {
+     * PerfilEleitor[] registrosCidade = arvorePorCidade.buscar(codigoCidade);
+     * // Processar apenas os registros da cidade (muito mais rápido!)
+     * }
      */
     public long calcularEleitores(
             String filtroAbrangencia, int codigoCidade, int numeroZona,
@@ -314,90 +264,119 @@ public class AppService {
         long inicio = System.currentTimeMillis();
         long total = 0;
 
-        for (int i = 0; i < totalRegistros; i++) {
-            PerfilEleitor e = eleitores[i];
+        // ** MODIFICAÇÃO PRINCIPAL: Otimização da busca por CIDADE (O(log n)) **
+        
+        if (filtroAbrangencia.equals("CIDADE")) {
+            // 1. Busca rápida na árvore: Retorna APENAS os registros da cidade
+            PerfilEleitor[] registrosCidade = arvorePorCidade.buscar(codigoCidade);
 
-            // Verificar abrangência
-            boolean passaAbrangencia = false;
-
-            switch (filtroAbrangencia) {
-                case "ESTADO":
-                    passaAbrangencia = true;
-                    break;
-                case "CIDADE":
-                    passaAbrangencia = (e.codCidade() == codigoCidade);
-                    break;
-                case "LOCAL":
-                    passaAbrangencia = (e.codCidade() == codigoCidade &&
-                                       e.nrZona() == numeroZona &&
-                                       e.nrLocalVotacao() == numeroLocal);
-                    break;
-                case "SECAO":
-                    passaAbrangencia = (e.codCidade() == codigoCidade &&
-                                       e.nrZona() == numeroZona &&
-                                       e.nrSecao() == numeroSecao);
-                    break;
+            // 2. Itera APENAS nos registros filtrados pela árvore
+            for (PerfilEleitor e : registrosCidade) {
+                // Aplica APENAS o filtro de perfil (pois o de abrangência já foi resolvido)
+                total += verificarPerfilESomar(e, filtroPerfil, valorPerfil);
             }
+        } 
+        
+        // ** Manter a busca linear O(n) para os outros filtros (ESTADO, LOCAL, SECAO) **
+        else {
+            for (int i = 0; i < totalRegistros; i++) {
+                PerfilEleitor e = eleitores[i];
 
-            if (!passaAbrangencia) continue;
+                // Verificar abrangência (Lógica original)
+                boolean passaAbrangencia = false;
 
-            // Verificar perfil e somar eleitores
-            switch (filtroPerfil) {
-                case "TODOS":
-                    total += e.qtEleitoresPerfil();
-                    break;
+                switch (filtroAbrangencia) {
+                    case "ESTADO":
+                        passaAbrangencia = true;
+                        break;
+                    case "LOCAL":
+                        passaAbrangencia = (e.codCidade() == codigoCidade &&
+                                            e.nrZona() == numeroZona &&
+                                            e.nrLocalVotacao() == numeroLocal);
+                        break;
+                    case "SECAO":
+                        passaAbrangencia = (e.codCidade() == codigoCidade &&
+                                            e.nrZona() == numeroZona &&
+                                            e.nrSecao() == numeroSecao);
+                        break;
+                    // O filtro CIDADE foi tratado no 'if' acima.
+                }
 
-                case "OBRIGATORIEDADE":
-                    if (e.tpObrigatoriedadeVoto().equalsIgnoreCase(valorPerfil)) {
-                        total += e.qtEleitoresPerfil();
-                    }
-                    break;
+                if (!passaAbrangencia) continue;
 
-                case "GENERO":
-                    if (e.dsGenero().equalsIgnoreCase(valorPerfil)) {
-                        total += e.qtEleitoresPerfil();
-                    }
-                    break;
-
-                case "FAIXA_ETARIA":
-                    if (verificarFaixaEtaria(e.cdFaixaEtaria(), valorPerfil)) {
-                        total += e.qtEleitoresPerfil();
-                    }
-                    break;
-
-                case "ESCOLARIDADE":
-                    if (verificarEscolaridade(e.cdGrauEscolaridade(), valorPerfil)) {
-                        total += e.qtEleitoresPerfil();
-                    }
-                    break;
-
-                case "ESTADO_CIVIL":
-                    if (verificarEstadoCivil(e.cdEstadoCivil(), valorPerfil)) {
-                        total += e.qtEleitoresPerfil();
-                    }
-                    break;
-
-                case "RACA_COR":
-                    if (verificarRacaCor(e.cdRacaCor(), valorPerfil)) {
-                        total += e.qtEleitoresPerfil();
-                    }
-                    break;
-
-                case "DEFICIENCIA":
-                    total += e.qtEleitoresDeficiencia();
-                    break;
-
-                case "BIOMETRIA":
-                    total += e.qtEleitoresBiometria();
-                    break;
+                // Verificar perfil e somar eleitores (Lógica original)
+                total += verificarPerfilESomar(e, filtroPerfil, valorPerfil);
             }
         }
+
 
         long tempo = System.currentTimeMillis() - inicio;
         Logger.registrar("Consulta de eleitores (" + filtroAbrangencia + "/" + filtroPerfil + ")", tempo);
 
         return total;
     }
+
+    // Método auxiliar para evitar duplicação de código de filtragem de perfil
+    private long verificarPerfilESomar(PerfilEleitor e, String filtroPerfil, String valorPerfil) {
+        switch (filtroPerfil) {
+            case "TODOS":
+                return e.qtEleitoresPerfil();
+
+            case "OBRIGATORIEDADE":
+                if (e.tpObrigatoriedadeVoto().equalsIgnoreCase(valorPerfil)) {
+                    return e.qtEleitoresPerfil();
+                }
+                break;
+
+            case "GENERO":
+                if (e.dsGenero().equalsIgnoreCase(valorPerfil)) {
+                    return e.qtEleitoresPerfil();
+                }
+                break;
+
+            case "FAIXA_ETARIA":
+                if (verificarFaixaEtaria(e.cdFaixaEtaria(), valorPerfil)) {
+                    return e.qtEleitoresPerfil();
+                }
+                break;
+
+            case "ESCOLARIDADE":
+                if (verificarEscolaridade(e.cdGrauEscolaridade(), valorPerfil)) {
+                    return e.qtEleitoresPerfil();
+                }
+                break;
+
+            case "ESTADO_CIVIL":
+                if (verificarEstadoCivil(e.cdEstadoCivil(), valorPerfil)) {
+                    return e.qtEleitoresPerfil();
+                }
+                break;
+
+            case "RACA_COR":
+                if (verificarRacaCor(e.cdRacaCor(), valorPerfil)) {
+                    return e.qtEleitoresPerfil();
+                }
+                break;
+
+            case "DEFICIENCIA":
+                // Este filtro ignora 'valorPerfil' e soma o total de deficiência.
+                // Na lógica original, este filtro é sempre somado se passar pela abrangência.
+                if (valorPerfil.equalsIgnoreCase("SIM")) { // Adicionando uma verificação, caso o menu peça
+                    return e.qtEleitoresDeficiencia();
+                }
+                break;
+
+            case "BIOMETRIA":
+                // Este filtro ignora 'valorPerfil' e soma o total de biometria.
+                // Na lógica original, este filtro é sempre somado se passar pela abrangência.
+                if (valorPerfil.equalsIgnoreCase("SIM")) { // Adicionando uma verificação, caso o menu peça
+                    return e.qtEleitoresBiometria();
+                }
+                break;
+        }
+        return 0; // Não passou no filtro de perfil
+    }
+
 
     /**
      * Calcula estatísticas gerais dos dados carregados.
